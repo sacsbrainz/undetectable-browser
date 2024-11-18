@@ -25,7 +25,7 @@ in
 
     # process reaper
     pkgs-unstable.dumb-init
-    pkgs-unstable.chromium # you can also use google chrome
+    # pkgs-unstable.chromium # you can also use google chrome
   ];
 
   # https://devenv.sh/languages/

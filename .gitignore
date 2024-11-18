@@ -10,3 +10,6 @@ devenv.local.nix
 
 # env
 .env
+
+# data
+data/

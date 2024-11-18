@@ -1,0 +1,92 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: windows
+            arch: amd64
+            ext: .exe
+          - os: windows
+            arch: 386
+            ext: .exe
+          - os: linux
+            arch: amd64
+            ext: ""
+          - os: linux
+            arch: 386
+            ext: ""
+          - os: darwin
+            arch: amd64
+            ext: ""
+          - os: darwin
+            arch: arm64
+            ext: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache: true
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.os }}
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0
+        run: |
+          mkdir -p dist
+          go build -v -ldflags="-s -w -X main.Version=${VERSION}" -o "dist/undetectable-browser-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+
+      - name: Generate SHA256 checksum
+        run: |
+          cd dist
+          sha256sum "undetectable-browser-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" > "undetectable-browser-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}.sha256"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: undetectable-browser-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            dist/undetectable-browser-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
+            dist/undetectable-browser-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}.sha256
+          if-no-files-found: error
+
+  create-release:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/undetectable-browser-*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
